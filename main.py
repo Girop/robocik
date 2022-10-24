@@ -1,7 +1,7 @@
-from pynput import keyboard
-from math import cos, sin, pi
 import csv
+from math import cos, pi, sin
 from os import path
+from pynput import keyboard
 
 SAVE_PATH = path.join(path.dirname(__file__), 'positions.csv')
 
@@ -22,66 +22,101 @@ class Vector:
     def __add__(self, other_vector):
         return Vector(self.x + other_vector.x, self.y + other_vector.y)
 
-    def rotate(self, angle: float, starting_pos) -> None:
-        new_x = (self.x - starting_pos.x)*cos(angle) - \
-            (self.y - starting_pos.y) * sin(angle) + starting_pos.x
-        new_y = (self.x - starting_pos.x)*sin(angle) - \
-            (self.y - starting_pos.y) * cos(angle) + starting_pos.y
-
-        self.x = new_x
-        self.y = new_y
+    def rotate(self, angle: float):
+        """Rotate vector by given angle in radians, returns Vector"""
+        new_x = self.x * cos(angle) - self.y * sin(angle)
+        new_y = self.x * sin(angle) - self.y * cos(angle)
+        return Vector(new_x, new_y)
 
 
 class Drone:
-
     def __init__(self) -> None:
         self.position = Vector(0, 0)
         self.rotation = 0
+        self.clear_logs()
 
-    def rotate(self, angle: float):
+        with open(SAVE_PATH, 'w+') as file:
+            writer = csv.DictWriter(
+                file, fieldnames=self.console_values.keys()
+            )
+            writer.writeheader()
+
+    def rotate(self, angle: float) -> None:
         self.rotation += angle
+        self.console_values['control_rotation'] += angle
+        self.console_values['rotation'] = self.rotation
+
+    def update_movement_logs(self, movement: Vector) -> None:
+        self.console_values['control_x'] += movement.x
+        self.console_values['control_y'] += movement.y
+        self.console_values['position_x'] = self.position.x
+        self.console_values['position_y'] = self.position.y
 
     def move_forward(self, distance: float) -> None:
-        self.position += Vector(distance,
-                                0).rotate(self.rotation, self.position)
+        movement = Vector(distance, 0).rotate(self.rotation)
+        self.position += movement
+        self.update_movement_logs(movement)
 
     def move_sideway(self, distance: float) -> None:
-        self.position += Vector(0,
-                                distance).rotate(self.rotation, self.position)
+        movement = Vector(0, distance).rotate(self.rotation)
+        self.position += movement
+        self.update_movement_logs(movement)
+
+    def print_logs(self) -> None:
+        print(self.console_values)
+
+    def clear_logs(self) -> None:
+        self.console_values = {
+            'control_x': 0,
+            'control_y': 0,
+            'control_rotation': 0,
+            'rotation': self.rotation,
+            'position_x': self.position.x,
+            'position_y': self.position.y
+        }
 
     def save_to_csv(self) -> None:
-        raise NotImplementedError
-        field_names = [
-            'Control X', 'Control Y', 'Control rotation', 'Rotation', 'Positon X', 'Position Y'
-        ]
-        with open(SAVE_PATH) as file:
-            writer = csv.DictWriter()
+        new_data = [value for (_key, value) in self.console_values.items()]
+        with open(SAVE_PATH, 'a') as file:
+            writer = csv.writer(file)
+            writer.writerow(new_data)
 
 
-def handle_press(key: keyboard.KeyCode, drone: Drone):
+def match_key(key, drone):
+
     match key.char.lower():
         case 'w':
-            drone.move_forward(1)
+            drone.move_forward(1.0)
         case 's':
-            drone.move_forward(-1)
+            drone.move_forward(-1.0)
         case 'a':
-            drone.move_sideway(1)
+            drone.move_sideway(1.0)
         case 'd':
-            drone.move_sideway(1)
+            drone.move_sideway(1.0)
         case 'q':
             drone.rotate(pi/4)
         case 'e':
             drone.rotate(-pi/4)
         case _:
-            pass
+            return False
+
+    return True
+
+
+def handle_press(key: keyboard.KeyCode, drone: Drone):
+    if hasattr(key, 'char'):
+        if (match_key(key, drone)):
+            drone.print_logs()
+            drone.save_to_csv()
+            drone.clear_logs()
 
 
 if __name__ == '__main__':
-
     drone = Drone()
-    keyboard.Listener(
+    listener = keyboard.Listener(
         on_press=lambda keyCode: handle_press(keyCode, drone)
-    ).start()
-
+    )
+    listener.start()
+    
     while True:
         pass
