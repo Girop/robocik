@@ -5,7 +5,7 @@ from os import path
 
 SAVE_PATH = path.join(path.dirname(__file__), 'positions.csv')
 
-
+d
 class Vector:
     def __init__(self, x_start: float, y_start: float) -> None:
         self.x = x_start
