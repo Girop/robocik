@@ -1,11 +1,16 @@
 from pynput import keyboard
-from math import cos, sin
+from math import cos, sin, pi
 import csv
 from os import path
 
 SAVE_PATH = path.join(path.dirname(__file__), 'positions.csv')
 
-d
+# TODO:
+# Saving to csv on change
+# Visualisation
+# Documentation
+
+
 class Vector:
     def __init__(self, x_start: float, y_start: float) -> None:
         self.x = x_start
@@ -33,17 +38,16 @@ class Drone:
         self.position = Vector(0, 0)
         self.rotation = 0
 
-    def forward(self):
-        self.position += Vector(0, 1)
+    def rotate(self, angle: float):
+        self.rotation += angle
 
-    def backward(self):
-        self.position += Vector(0, -1)
+    def move_forward(self, distance: float) -> None:
+        self.position += Vector(distance,
+                                0).rotate(self.rotation, self.position)
 
-    def leftward(self):
-        self.position += Vector(1, 0)
-
-    def rightward(self):
-        self.position += Vector(-1, 0)
+    def move_sideway(self, distance: float) -> None:
+        self.position += Vector(0,
+                                distance).rotate(self.rotation, self.position)
 
     def save_to_csv(self) -> None:
         raise NotImplementedError
@@ -54,5 +58,30 @@ class Drone:
             writer = csv.DictWriter()
 
 
+def handle_press(key: keyboard.KeyCode, drone: Drone):
+    match key.char.lower():
+        case 'w':
+            drone.move_forward(1)
+        case 's':
+            drone.move_forward(-1)
+        case 'a':
+            drone.move_sideway(1)
+        case 'd':
+            drone.move_sideway(1)
+        case 'q':
+            drone.rotate(pi/4)
+        case 'e':
+            drone.rotate(-pi/4)
+        case _:
+            pass
+
+
 if __name__ == '__main__':
-    pass
+
+    drone = Drone()
+    keyboard.Listener(
+        on_press=lambda keyCode: handle_press(keyCode, drone)
+    ).start()
+
+    while True:
+        pass
