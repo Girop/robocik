@@ -5,6 +5,7 @@ from pynput import keyboard
 import pygame as pg
 from pygame import freetype
 from screeninfo import get_monitors
+import argparse
 
 monitor = get_monitors()[0]
 SAVE_PATH = path.join(path.dirname(__file__), 'positions.csv')
@@ -13,6 +14,8 @@ WIDTH, HEIGHT = (monitor.width, monitor.height)
 
 
 class Vector:
+    """Object representing position or movment"""
+
     def __init__(self, x_start: float, y_start: float) -> None:
         self.x = x_start
         self.y = y_start
@@ -31,6 +34,8 @@ class Vector:
 
 
 class Drone:
+    """Main class for managing positons and motions"""
+
     def __init__(self, start_x=0, start_y=0, print_flag=True, save_flag=True) -> None:
         self.position = Vector(start_x, start_y)
         self.rotation = 0
@@ -86,7 +91,7 @@ class Drone:
             writer.writerow(new_data)
 
     def match_key(self, key) -> bool:
-
+        """Handles drone movement, returns True when action was made"""
         match key.char.lower():
             case 'w':
                 self.move_sideway(1.0)
@@ -120,7 +125,21 @@ def handle_press(key: keyboard.KeyCode, drone: Drone):
 
 
 if __name__ == '__main__':
-    drone = Drone(WIDTH / 2, HEIGHT / 2)
+    parser = argparse.ArgumentParser(
+        description='Simulate simple underwater drone movement'
+    )
+    parser.add_argument(
+        '-p', '--print', action='store_true', help='Prints drone postions to console'
+    )
+    parser.add_argument(
+        '-s', '--save', action='store_true', help='Saves drone positions to `positions.csv`'
+    )
+    args = parser.parse_args()
+
+    drone = Drone(
+        WIDTH / 2, HEIGHT / 2, print_flag=args.print, save_flag=args.save
+    )
+
     listener = keyboard.Listener(
         on_press=lambda keyCode: handle_press(keyCode, drone)
     )
@@ -131,7 +150,6 @@ if __name__ == '__main__':
     sub_img = pg.image.load(SUBMARINE_IMG)
     font = freetype.SysFont(name=freetype.get_default_font(), size=18)
     deegree_sym = u"\u00b0"
-
     running = True
     while running:
         for event in pg.event.get():
@@ -139,7 +157,8 @@ if __name__ == '__main__':
                 running = False
 
         screen.fill((174, 198, 207))
-        # Rotation subtitle render
+
+        # Degrees subtitle render
         dg_val = int(degrees(drone.rotation))
         y_text = drone.position.y + sub_img.get_height() + 5
         x_text = drone.position.x + sub_img.get_width() / 3
