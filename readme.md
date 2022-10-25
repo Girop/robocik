@@ -4,8 +4,22 @@
 
 # Zadanie rekrutacyjne KN Robocik - programista python
 
+## Instalacja
+
+```console
+git clone https://github.com/Girop/robocik
+
+cd robocik
+
+python -m pip install -r requirements.txt
+```
+
 ## Start
 
-```sh
-py main.py [-h] [-print] [-save]
+```console
+python main.py [-h] [-print] [-save]
 ```
+
+Argumenty opcjonalne:
+    -p, --print         Pokazywanie ruchów drona w konsoli
+    -s, --save          Zapisywanie ruchów drone do `positons.csv`
