@@ -1,14 +1,15 @@
 import csv
-from math import cos, pi, sin
+from math import cos, pi, sin, degrees
 from os import path
 from pynput import keyboard
+import pygame as pg
+from pygame import freetype
+from screeninfo import get_monitors
 
+monitor = get_monitors()[0]
 SAVE_PATH = path.join(path.dirname(__file__), 'positions.csv')
-
-# TODO:
-# Saving to csv on change
-# Visualisation
-# Documentation
+SUBMARINE_IMG = path.join(path.dirname(__file__), 'submarine.png')
+WIDTH, HEIGHT = (monitor.width, monitor.height)
 
 
 class Vector:
@@ -30,10 +31,12 @@ class Vector:
 
 
 class Drone:
-    def __init__(self) -> None:
-        self.position = Vector(0, 0)
+    def __init__(self, start_x=0, start_y=0, print_flag=True, save_flag=True) -> None:
+        self.position = Vector(start_x, start_y)
         self.rotation = 0
         self.clear_logs()
+        self.print_flag = print_flag
+        self.save_flag = save_flag
 
         with open(SAVE_PATH, 'w+') as file:
             writer = csv.DictWriter(
@@ -41,19 +44,20 @@ class Drone:
             )
             writer.writeheader()
 
-    def rotate(self, angle: float) -> None:
-        self.rotation += angle
-        self.console_values['control_rotation'] += angle
-        self.console_values['rotation'] = self.rotation
-
     def update_movement_logs(self, movement: Vector) -> None:
         self.console_values['control_x'] += movement.x
         self.console_values['control_y'] += movement.y
         self.console_values['position_x'] = self.position.x
         self.console_values['position_y'] = self.position.y
 
+    def rotate(self, angle: float) -> None:
+        self.rotation += angle
+        self.rotation %= 2 * pi
+        self.console_values['control_rotation'] += angle
+        self.console_values['rotation'] = self.rotation
+
     def move_forward(self, distance: float) -> None:
-        movement = Vector(distance, 0).rotate(self.rotation)
+        movement = Vector(distance, 0).rotate(-self.rotation)
         self.position += movement
         self.update_movement_logs(movement)
 
@@ -81,42 +85,69 @@ class Drone:
             writer = csv.writer(file)
             writer.writerow(new_data)
 
+    def match_key(self, key) -> bool:
 
-def match_key(key, drone):
+        match key.char.lower():
+            case 'w':
+                self.move_sideway(1.0)
+            case 's':
+                self.move_sideway(-1.0)
+            case 'a':
+                self.move_forward(-1.0)
+            case 'd':
+                self.move_forward(1.0)
+            case 'q':
+                self.rotate(pi/36)  # 5 degrees
+            case 'e':
+                self.rotate(-pi/36)  # -5 degrees
+            case _:
+                return False
 
-    match key.char.lower():
-        case 'w':
-            drone.move_forward(1.0)
-        case 's':
-            drone.move_forward(-1.0)
-        case 'a':
-            drone.move_sideway(1.0)
-        case 'd':
-            drone.move_sideway(1.0)
-        case 'q':
-            drone.rotate(pi/4)
-        case 'e':
-            drone.rotate(-pi/4)
-        case _:
-            return False
+        return True
 
-    return True
+    def manage_logs(self) -> None:
+        if self.print_flag:
+            self.print_logs()
+        if self.save_flag:
+            self.save_to_csv()
+        self.clear_logs()
 
 
 def handle_press(key: keyboard.KeyCode, drone: Drone):
     if hasattr(key, 'char'):
-        if (match_key(key, drone)):
-            drone.print_logs()
-            drone.save_to_csv()
-            drone.clear_logs()
+        if (drone.match_key(key)):
+            drone.manage_logs()
 
 
 if __name__ == '__main__':
-    drone = Drone()
+    drone = Drone(WIDTH / 2, HEIGHT / 2)
     listener = keyboard.Listener(
         on_press=lambda keyCode: handle_press(keyCode, drone)
     )
     listener.start()
-    
-    while True:
-        pass
+
+    pg.init()
+    screen = pg.display.set_mode((WIDTH, HEIGHT), pg.FULLSCREEN)
+    sub_img = pg.image.load(SUBMARINE_IMG)
+    font = freetype.SysFont(name=freetype.get_default_font(), size=18)
+    deegree_sym = u"\u00b0"
+
+    running = True
+    while running:
+        for event in pg.event.get():
+            if event.type == pg.QUIT:
+                running = False
+
+        screen.fill((174, 198, 207))
+        # Rotation subtitle render
+        dg_val = int(degrees(drone.rotation))
+        y_text = drone.position.y + sub_img.get_height() + 5
+        x_text = drone.position.x + sub_img.get_width() / 3
+        font.render_to(
+            screen, (x_text, y_text), f'{dg_val}' + deegree_sym, (0, 0, 0)
+        )
+        #
+        rotated_img = pg.transform.rotate(sub_img, degrees(drone.rotation))
+
+        screen.blit(rotated_img, (drone.position.x, drone.position.y))
+        pg.display.flip()
