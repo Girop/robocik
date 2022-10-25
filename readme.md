@@ -20,6 +20,7 @@ python -m pip install -r requirements.txt
 python main.py [-h] [-print] [-save]
 
 Argumenty opcjonalne:
+    -h, --help
     -p, --print         Pokazywanie ruchów drona w konsoli
     -s, --save          Zapisywanie ruchów drone do `positons.csv`
 
